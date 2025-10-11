@@ -21,6 +21,9 @@ app.get("/db/health", async (_req, res) => {
   }
 });
 
+
+
+
 // Crear producto
 app.post("/products", async (req, res) => {
   const { name, price, stock } = req.body ?? {};
