@@ -12,6 +12,15 @@ const PORT = process.env.PORT || 4002;
 const SERVICE = process.env.SERVICE_NAME || "products-api";
 const USERS_API_URL = process.env.USERS_API_URL || "http://users-api:4001";
 
+app.get("/db/health", async (_req, res) => {
+  try {
+    const r = await pool.query("SELECT 1 AS ok");
+    res.json({ ok: r.rows[0].ok === 1 });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e) });
+  }
+});
+
 // Crear producto
 app.post("/products", async (req, res) => {
   const { name, price, stock } = req.body ?? {};
