@@ -23,6 +23,8 @@ app.post("/users", async (req, res) => {
   const { name, email } = req.body ?? {};
   if (!name || !email) return res.status(400).json({ error: "name & email required" });
  
+
+  
   try {
     const r = await pool.query(
       "INSERT INTO users_schema.users(name, email) VALUES($1, $2) RETURNING id, name, email",
