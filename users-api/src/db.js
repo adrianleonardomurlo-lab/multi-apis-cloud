@@ -5,4 +5,4 @@ export const pool = new pg.Pool({
   ssl: { rejectUnauthorized: false } // Azure PG exige TLS; para demo deshabilitamos validación de CA
 });
 
-console.log("DB URL:", process.env.USERS_DATABASE_URL);
+console.log("✅ Connected Database Postgresql ");

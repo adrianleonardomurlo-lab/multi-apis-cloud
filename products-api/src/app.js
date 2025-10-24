@@ -1,120 +1,110 @@
 import express from "express";
-import cors from "cors";
-import { pool } from "./db.js";
-
+import { connectDB } from "./db.js";
+import mongoose from "mongoose";
+import AutoIncrementFactory from "mongoose-sequence";
 
 
 const app = express();
-app.use(cors());
 app.use(express.json());
 
 const PORT = process.env.PORT || 4002;
-const SERVICE = process.env.SERVICE_NAME || "products-api";
-const USERS_API_URL = process.env.USERS_API_URL || "http://users-api:4001";
 
-app.get("/db/health", async (_req, res) => {
-  try {
-    const r = await pool.query("SELECT 1 AS ok");
-    res.json({ ok: r.rows[0].ok === 1 });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: String(e) });
-  }
+// 🔌 Conexión a la base de datos
+await connectDB();
+
+
+const productSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  price: { type: Number, required: true },
 });
 
+export const Product = mongoose.model("Product", productSchema);
 
 
-
-// Crear producto
-app.post("/products", async (req, res) => {
-  const { name, price, stock } = req.body ?? {};
-  if (!name || price == null) {
-    return res.status(400).json({ error: "name & price required" });
-  }
-
-  try {
-    const r = await pool.query(
-      `INSERT INTO products_schema.products(name, price, stock) 
-       VALUES($1, $2, $3) 
-       RETURNING id, name, price, stock`,
-      [name, price, stock ?? 0]
-    );
-    res.status(201).json(r.rows[0]);
-  } catch (e) {
-    res.status(500).json({ error: "insert failed", detail: String(e) });
-  }
+// 🩺 Ruta de salud
+app.get("/health", (req, res) => {
+  res.send("API de productos funcionando correctamente 🚀");
 });
-
 
 app.get("/products/:id", async (req, res) => {
-  const { id } = req.params;
-
   try {
-    const r = await pool.query(
-      "SELECT id, name, price, stock FROM products_schema.products WHERE id = $1",
-      [id]
-    );
+    
+    const product = await Product.findOne({ _id: req.params.id });
 
-    if (r.rows.length === 0) {
-      return res.status(404).json({ error: "Producto no encontrado" });
+    if (!product) {
+      return res.status(404).json({ message: "Producto no encontrado" });
     }
 
-    res.json(r.rows[0]);
-  } catch (e) {
-    res.status(500).json({ error: "query failed", detail: String(e) });
+    res.json(product);
+  } catch (error) {
+    console.error("Error al obtener producto:", error);
+    res.status(500).json({ error: "Error al obtener producto" });
   }
 });
 
-// Listar productos
-app.get("/products", async (_req, res) => {
+
+// 📦 Obtener todos los productos
+app.get("/products", async (req, res) => {
   try {
-    const r = await pool.query(
-      "SELECT id, name, price, stock FROM products_schema.products ORDER BY id ASC"
-    );
-    res.json(r.rows);
-  } catch (e) {
-    res.status(500).json({ error: "query failed", detail: String(e) });
+    const products = await Product.find();
+    res.json(products);
+  } catch (error) {
+    console.error("Error al obtener productos:", error);
+    res.status(500).json({ error: "Error al obtener productos" });
   }
 });
 
 
-// Actualizar producto
+
+
+// ➕ Crear un nuevo producto
+app.post("/products", async (req, res) => {
+  try {
+    const { name, price } = req.body;
+    if (!name || !price) {
+      return res.status(400).json({ error: "Faltan campos requeridos" });
+    }
+
+    const newProduct = new Product({ name, price });
+    await newProduct.save();
+
+    res.status(201).json({
+      message: "Producto creado exitosamente",
+      _id: newProduct._id,
+    });
+  } catch (error) {
+    console.error("Error al crear producto:", error);
+    res.status(500).json({ error: "Error al crear producto" });
+  }
+});
+
 app.put("/products/:id", async (req, res) => {
-  const { id } = req.params;
-  const { name, price, stock } = req.body ?? {};
-
   try {
-    const r = await pool.query(
-      `UPDATE products_schema.products 
-       SET name = COALESCE($1, name),
-           price = COALESCE($2, price),
-           stock = COALESCE($3, stock)
-       WHERE id = $4
-       RETURNING id, name, price, stock`,
-      [name, price, stock, id]
+    const product = await Product.findOneAndUpdate(
+      { _id: req.params.id }, // buscar por el campo autoincrementable
+      req.body,
+      { new: true } // devuelve el documento actualizado
     );
 
-    if (r.rows.length === 0) return res.status(404).json({ error: "product not found" });
-    res.json(r.rows[0]);
-  } catch (e) {
-    res.status(500).json({ error: "update failed", detail: String(e) });
+    if (!product) return res.status(404).json({ message: "Producto no encontrado" });
+
+    res.json({ message: "Producto actualizado correctamente", product });
+  } catch (error) {
+    res.status(500).json({ message: "Error al actualizar producto", error });
   }
 });
 
-// Eliminar producto
 app.delete("/products/:id", async (req, res) => {
-  const { id } = req.params;
-
   try {
-    const r = await pool.query(
-      "DELETE FROM products_schema.products WHERE id = $1 RETURNING id, name",
-      [id]
-    );
-
-    if (r.rows.length === 0) return res.status(404).json({ error: "product not found" });
-    res.json({ message: "product deleted", product: r.rows[0] });
-  } catch (e) {
-    res.status(500).json({ error: "delete failed", detail: String(e) });
+    const products = await Product.deleteOne({_id: req.params.id});
+    res.json({message: "Producto eliminado correctamente"});
+  } catch (error) {
+    console.error("Error al eliminar producto:", error);
+    res.status(500).json({ error: "Error al eliminar producto" });
   }
 });
 
-app.listen(PORT, () => console.log(`✅ users-api on http://localhost:${PORT}`));
+// 🚀 Inicio del servidor
+app.listen(PORT, () => {
+  console.log(`✅ products-api on http://localhost:${PORT}`);
+});
