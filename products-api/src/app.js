@@ -26,6 +26,10 @@ app.get("/health", (req, res) => {
   res.send("API de productos funcionando correctamente 🚀");
 });
 
+app.get("/clase", (req, res) => {
+  res.send("Clase de hoy 24/10");
+});
+
 app.get("/products/:id", async (req, res) => {
   try {
     
