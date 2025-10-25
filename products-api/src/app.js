@@ -27,8 +27,10 @@ app.get("/health", (req, res) => {
 });
 
 app.get("/clase", (req, res) => {
-  res.send("Clase de hoy 24/10");
+  res.send("Clase de hoy 25/10");
 });
+
+
 
 app.get("/products/:id", async (req, res) => {
   try {
